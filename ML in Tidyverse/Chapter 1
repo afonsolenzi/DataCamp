@@ -2,7 +2,7 @@ nest = make a list colum
 
 unnest = simplify the list columns
 
-map = work with list columns, applys a function to to every element of a list 
+map = work with list columns, applys a function to every element of a list 
 and returns a list as result.
 
 library(dplyr)
