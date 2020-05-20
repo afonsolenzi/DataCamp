@@ -1,1 +1,50 @@
-teste
+nest = make a list colum 
+
+unnest = simplify the list columns
+
+map = work with list columns, applys a function to to every element of a list 
+and returns a list as result.
+
+library(dplyr)
+library(gapminder)
+library(tidyverse)
+library(broom)
+library(rsample)
+
+gap_nested <- gapminder %>% 
+  group_by(country) %>% 
+  nest()
+
+# Explore gap_nested
+head(gap_nested)
+gap_nested$country[[1]]
+
+# Create the unnested dataframe called gap_unnnested
+gap_unnested <- gap_nested %>% unnest()
+  
+# Confirm that your data was not modified  
+identical(gapminder, gap_unnested)
+
+#bubble dynamic plot
+
+library(plotly)
+library(gapminder)
+
+p <- gapminder %>%
+  plot_ly(
+    x = ~gdpPercap, 
+    y = ~lifeExp, 
+    size = ~pop, 
+    color = ~continent, 
+    frame = ~year, 
+    text = ~country, 
+       hoverinfo = "text",
+    type = 'scatter',
+    mode = 'markers'
+  ) %>%
+  layout(
+    xaxis = list(
+      type = "log"
+    )
+    
+    
