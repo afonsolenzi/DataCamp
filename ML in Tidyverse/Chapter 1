@@ -47,4 +47,8 @@ p <- gapminder %>%
       type = "log"
     )
     
+    #display the plot
+p  
+
+    
     
