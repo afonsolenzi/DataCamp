@@ -1,15 +1,32 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
 nest = make a list colum 
 
 unnest = simplify the list columns
 
-map = work with list columns, applys a function to every element of a list 
+map = work with list columns, applys a function to to every element of a list 
 and returns a list as result.
 
+```{r}
 library(dplyr)
 library(gapminder)
 library(tidyverse)
 library(broom)
 library(rsample)
+```
+
+```{r}
+# Explore gapminder
+head(gapminder)
+
+
+```
+
+```{r}
+# Prepare the nested dataframe gap_nested
 
 gap_nested <- gapminder %>% 
   group_by(country) %>% 
@@ -18,15 +35,22 @@ gap_nested <- gapminder %>%
 # Explore gap_nested
 head(gap_nested)
 gap_nested$country[[1]]
+gap_nested$data[[1]]
+```
 
+```{r '}
 # Create the unnested dataframe called gap_unnnested
 gap_unnested <- gap_nested %>% unnest()
   
 # Confirm that your data was not modified  
 identical(gapminder, gap_unnested)
+```
+```{r}
+gap_unnested
+```
 
-#bubble dynamic plot
 
+```{r}
 library(plotly)
 library(gapminder)
 
@@ -38,7 +62,7 @@ p <- gapminder %>%
     color = ~continent, 
     frame = ~year, 
     text = ~country, 
-       hoverinfo = "text",
+    hoverinfo = "text",
     type = 'scatter',
     mode = 'markers'
   ) %>%
@@ -46,9 +70,359 @@ p <- gapminder %>%
     xaxis = list(
       type = "log"
     )
-    
-    #display the plot
-p  
+  )
 
+#display the plot
+p
+```
+
+
+
+```{r}
+# Extract the data of Algeria
+algeria_df <- gap_nested$data[[1]]
+mean(algeria_df$pop)
+```
+
+
+
+```{r}
+# Extract the data of Algeria
+algeria_df <- gap_nested$data[[1]]
+
+# Calculate the minimum of the population vector
+min(algeria_df$pop)
+
+# Calculate the maximum of the population vector
+max(algeria_df$pop)
+
+# Calculate the mean of the population vector
+mean(algeria_df$pop)
+```
+
+```{r}
+algeria_df
+```
+
+```{r}
+map(.x = gap_nested$data, .f = ~mean(.x$pop))
+```
+
+```{r}
+# Calculate the mean population for each country
+pop_nested <- gap_nested %>%
+  mutate(mean_pop = map(data, ~mean(.x$pop)))
+
+# Take a look at pop_nested
+head(pop_nested)
+
+# Extract the mean_pop value by using unnest
+pop_mean <- pop_nested %>% 
+  unnest(mean_pop)
+
+# Take a look at pop_mean
+head(pop_mean)
+```
+
+```{r}
+summary(gapminder)
+```
+
+
+```{r}
+
+```
+
+```{r}
+# Calculate mean population and store result as a double
+pop_mean <- gap_nested %>%
+  mutate(mean_pop = map_dbl(data, ~mean(.x$population)))
+
+# Take a look at pop_mean
+head(pop_mean)
+```
+
+```{r}
+# Build a linear model for each country
+gap_models <- gap_nested %>%
+    mutate(model = map(data, ~lm(formula = gapminder$lifeExp~gapminder$year, data = .x)))
     
+# Extract the model for Algeria    
+algeria_model <- gap_models$model[[1]]
+
+# View the summary for the Algeria model
+summary(algeria_model)
+```
+
+TIDY YOUR MODELS WITH BROOM
+  
+  tidy(): returns the statistical findings of the model (such as coefficients)
+
+  glance(): returns a concise one-row summary of the model
+
+  augment(): adds prediction columns to the data being modeled
+  
+  
+
+```{r}
+library(broom)
+
+# Extract the coefficients of the algeria_model as a dataframe
+tidy(algeria_model)
+
+# Extract the statistics of the algeria_model as a dataframe
+glance(algeria_model)
+```
+
+```{r}
+
+```
+
+
+```{r}
+# Build the augmented dataframe
+algeria_fitted <- augment(algeria_model)
+
+# Compare the predicted values with the actual values of life expectancy
+algeria_fitted %>% 
+  ggplot(aes(x = gapminder.year)) +
+  geom_point(aes(y =gapminder.lifeExp )) + 
+  geom_line(aes(y = .fitted), color = "red")
+```
+```{r}
+gap_models
+
+```
+
+
+
+```{r}
+# Extract the coefficient statistics of each model into nested dataframes
+model_coef_nested <- gap_models %>% 
+    mutate(coef = map(model, ~tidy(.x)))
     
+# Simplify the coef dataframes for each model    
+model_coef <- model_coef_nested %>%
+    unnest(coef)
+
+# Plot a histogram of the coefficient estimates for year         
+model_coef %>% 
+  filter(term == "year") %>% 
+  ggplot(aes(x = estimate)) +
+  geom_histogram()
+```
+
+
+
+```{r}
+# Extract the fit statistics of each model into dataframes
+model_perf_nested <- gap_models %>% 
+    mutate(fit = map(model, ~glance(.x)))
+
+# Simplify the fit dataframes for each model    
+model_perf <- model_perf_nested %>% 
+    unnest(fit)
+
+# Look at the first six rows of model_perf
+head(model_perf)
+```
+
+
+
+
+```{r}
+# Plot a histogram of rsquared for the 77 models    
+model_perf %>% 
+  ggplot(aes(x = r.squared)) + 
+  geom_histogram()
+  
+# Extract the 4 best fitting models
+best_fit <- model_perf %>% 
+  top_n(n = 4, wt = r.squared)
+
+# Extract the 4 models with the worst fit
+worst_fit <- model_perf %>% 
+  top_n(n = 4, wt = -r.squared)
+```
+
+```{r}
+model_perf
+best_fit
+```
+
+
+```{r}
+best_augmented <- best_fit %>% 
+  # Build the augmented dataframe for each country model
+  mutate(augmented = map(model, ~augment(.x))) %>% 
+  # Expand the augmented dataframes
+  unnest(augmented)
+
+worst_augmented <- worst_fit %>% 
+  # Build the augmented dataframe for each country model
+  mutate(augmented = map(model, ~augment(.x))) %>% 
+  # Expand the augmented dataframes
+  unnest(augmented)
+```
+
+```{r}
+best_augmented
+```
+
+
+```{r}
+# Compare the predicted values with the actual values of life expectancy 
+# for the top 4 best fitting models
+best_augmented %>% 
+  ggplot(aes(x = gapminder.year)) +
+  geom_point(aes(y = gapminder.lifeExp)) + 
+  geom_line(aes(y = .fitted), color = "red") +
+  facet_wrap(~country, scales = "free_y")
+```
+
+```{r}
+# Build a linear model for each country using all features
+gap_fullmodel <- gap_nested %>% 
+  mutate(model = map(data, ~lm(lifeExp~., data = .x)))
+
+fullmodel_perf <- gap_fullmodel %>% 
+  # Extract the fit statistics of each model into dataframes
+  mutate(fit = map(model, ~glance(.x))) %>% 
+  # Simplify the fit dataframes for each model
+  unnest(fit)
+  
+# View the performance for the four countries with the worst fitting 
+# four simple models you looked at before
+fullmodel_perf %>% 
+  filter(country %in% worst_fit$country) %>% 
+  select(country, adj.r.squared)
+```
+
+
+```{r}
+
+set.seed(42)
+
+# Prepare the initial split object
+gap_split <- initial_split(gapminder, prop = 0.75)
+
+# Extract the training dataframe
+training_data <- training(gap_split)
+
+# Extract the testing dataframe
+testing_data <- testing(gap_split)
+
+# Calculate the dimensions of both training_data and testing_data
+dim(training_data)
+dim(testing_data)
+```
+
+```{r}
+set.seed(42)
+
+# Prepare the dataframe containing the cross validation partitions
+cv_split <- vfold_cv(training_data, v = 5)
+
+cv_data <- cv_split %>% 
+  mutate(
+    # Extract the train dataframe for each split
+    train = map(splits, ~training(.x)), 
+    # Extract the validate dataframe for each split
+    validate = map(splits, ~testing(.x))
+  )
+
+# Use head() to preview cv_data
+head(cv_data)
+```
+
+```{r}
+# Build a model using the train data for each fold of the cross validation
+cv_models_lm <- cv_data %>% 
+  mutate(model = map(train, ~lm(formula = life_expectancy~., data = .x)))
+```
+
+```{r}
+library(Metrics)
+# Calculate the mean absolute error for each validate fold       
+cv_eval_lm <- cv_prep_lm %>% 
+  mutate(validate_mae = map2_dbl(validate_actual, validate_predicted, ~mae(actual = .x, predicted = .y)))
+
+# Print the validate_mae column
+cv_eval_lm$validate_mae
+
+# Calculate the mean of validate_mae column
+mean(cv_eval_lm$validate_mae)
+```
+
+```{r}
+library(ranger)
+
+# Build a random forest model for each fold
+cv_models_rf <- cv_data %>% 
+  mutate(model = map(train, ~ranger(formula = lifeExp~., data = .x,
+                                    num.trees = 100, seed = 42)))
+
+# Generate predictions using the random forest model
+cv_prep_rf <- cv_models_rf %>% 
+  mutate(validate_predicted = map2(.x = model, .y = validate, ~predict(.x, .y)$predictions))
+```
+
+```{r}
+library(ranger)
+
+# Calculate validate MAE for each fold
+cv_eval_rf <- cv_prep_rf %>% 
+  mutate(validate_mae = map2_dbl(validate_actual, validate_predicted, ~mae(actual = .x, predicted = .y)))
+
+# Print the validate_mae column
+cv_eval_rf$validate_mae
+
+# Calculate the mean of validate_mae column
+mean(cv_eval_rf$validate_mae)
+```
+
+
+```{r}
+# Prepare for tuning your cross validation folds by varying mtry
+cv_tune <- cv_data %>% 
+  crossing(mtry = 2:5) 
+
+# Build a model for each fold & mtry combination
+cv_model_tunerf <- cv_tune %>% 
+  mutate(model = map2(.x = train, .y = mtry, ~ranger(formula = lifeExp~., 
+                                           data = .x, mtry = .y, 
+                                           num.trees = 100, seed = 42)))
+```
+
+```{r}
+# Generate validate predictions for each model
+cv_prep_tunerf <- cv_model_tunerf %>% 
+  mutate(validate_predicted = map2(.x = model, .y = validate, ~predict(.x, .y)$predictions))
+
+# Calculate validate MAE for each fold and mtry combination
+cv_eval_tunerf <- cv_prep_tunerf %>% 
+  mutate(validate_mae = map2_dbl(.x = validate_actual, .y = validate_predicted, ~mae(actual = .x, predicted = .y)))
+
+# Calculate the mean validate_mae for each mtry used  
+cv_eval_tunerf %>% 
+  group_by(mtry) %>% 
+  summarise(mean_mae = mean(validate_mae))
+```
+
+Excellent job! Looks like parameter tuning was able to eke out another slight boost in performance, dropping the mae from 0.795 (mtry = 2) to 0.789 (mtry = 4). Assuming that you've finished your model selection you can conclude that your final (best performing) model will be the random forest model built using ranger with an mtry = 4 and num.trees = 100. In the next exercise you will build this model using all training data and evaluate its expected future performance using the testing data.
+
+```{r}
+# Build the model using all training data and the best performing parameter
+best_model <- ranger(formula = lifeExp~., data = training_data,
+                     mtry = 4, num.trees = 100, seed = 42)
+
+# Prepare the test_actual vector
+test_actual <- testing_data$lifeExp
+
+# Predict life_expectancy for the testing_data
+test_predicted <- predict(best_model, testing_data)$predictions
+
+# Calculate the test MAE
+mae(test_actual, test_predicted)
+```
+
